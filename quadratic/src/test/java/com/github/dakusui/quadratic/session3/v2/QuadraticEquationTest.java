@@ -1,16 +1,14 @@
-package com.github.dakusui.quadratic.session3.section1;
+package com.github.dakusui.quadratic.session3.v2;
 
+import com.github.dakusui.jcunit.plugins.constraints.SmartConstraintChecker;
 import com.github.dakusui.jcunit.runners.standard.JCUnit;
-import com.github.dakusui.jcunit.runners.standard.annotations.Condition;
-import com.github.dakusui.jcunit.runners.standard.annotations.FactorField;
-import com.github.dakusui.jcunit.runners.standard.annotations.When;
+import com.github.dakusui.jcunit.runners.standard.annotations.*;
 import com.github.dakusui.quadratic.session1.QuadraticEquation;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import static org.hamcrest.number.IsCloseTo.closeTo;
 import static org.junit.Assert.assertThat;
-
 
 
 /**
@@ -25,6 +23,7 @@ import static org.junit.Assert.assertThat;
  * </pre>
  */
 @RunWith(JCUnit.class)
+@GenerateCoveringArrayWith(checker = @Checker(SmartConstraintChecker.class))
 public class QuadraticEquationTest {
   @FactorField(intLevels = {1, 0, -1, 100, 101, -100, -101, Integer.MAX_VALUE, Integer.MIN_VALUE})
   public int   a;
