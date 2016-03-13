@@ -16,9 +16,19 @@ import static org.junit.Assert.assertThat;
  * <li>session 1: Initial version of QuadraticEquationSolverTest.(runCount     = 53, failureCount = 39, ignoreCount  =  0)
  * </li>
  * </ul>
+ * <pre>
+ * QuadraticEquationクラス仕様 version 2
+ * - 入力:三つの整数a,b,c
+ * -- aが0の場合、例外が送出される。(問題4:a==0)
+ * -- a,b,cのいずれかの絶対値が100より大きい場合、例外が創出される。(問題3:巨大な係数)
+ * -- a,b,cがb * b - 4 * c * a >= 0を満たさない場合、例外が送出される。(問題1：虚数解)
+ * - 出力:二次方程式、a x^2 + b x^2 + c = 0を満たす実数x1とx2
+ * -- 出力される解x1またはx2を上述の2次方程式に代入した時、その絶対値は0.01未満になる。(問題2：丸め誤差)
+ * </pre>
  */
 @RunWith(JCUnit.class)
 public class QuadraticEquationTest {
+
   @FactorField
   public int a;
   @FactorField
