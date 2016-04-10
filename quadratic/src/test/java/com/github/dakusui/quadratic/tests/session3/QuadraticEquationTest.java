@@ -1,14 +1,16 @@
-package com.github.dakusui.quadratic.session3.v2;
+package com.github.dakusui.quadratic.tests.session3;
 
-import com.github.dakusui.jcunit.plugins.constraints.SmartConstraintChecker;
 import com.github.dakusui.jcunit.runners.standard.JCUnit;
-import com.github.dakusui.jcunit.runners.standard.annotations.*;
-import com.github.dakusui.quadratic.session1.QuadraticEquation;
+import com.github.dakusui.jcunit.runners.standard.annotations.Condition;
+import com.github.dakusui.jcunit.runners.standard.annotations.FactorField;
+import com.github.dakusui.jcunit.runners.standard.annotations.When;
+import com.github.dakusui.quadratic.suts.session1.QuadraticEquation;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import static org.hamcrest.number.IsCloseTo.closeTo;
 import static org.junit.Assert.assertThat;
+
 
 
 /**
@@ -19,11 +21,10 @@ import static org.junit.Assert.assertThat;
  * -- a,b,cのいずれかの絶対値が100より大きい場合、例外が創出される。(問題3:巨大な係数)
  * -- a,b,cがb * b - 4 * c * a >= 0を満たさない場合、例外が送出される。(問題1：虚数解)
  * - 出力:二次方程式、a x^2 + b x^2 + c = 0を満たす実数x1とx2
- * -- 出力される解x1またはx2を上述の2次方程式に代入した時、その絶対値は0.01未満になる。(問題2：丸め誤差)
+ * -- 出力される解x1またはx2を上述の2次方程式に代入した時、その誤差は0.01を越えない。(問題2：丸め誤差)
  * </pre>
  */
 @RunWith(JCUnit.class)
-@GenerateCoveringArrayWith(checker = @Checker(SmartConstraintChecker.class))
 public class QuadraticEquationTest {
   @FactorField(intLevels = {1, 0, -1, 100, 101, -100, -101, Integer.MAX_VALUE, Integer.MIN_VALUE})
   public int   a;
@@ -72,15 +73,6 @@ public class QuadraticEquationTest {
   }
 
   @Test(expected = IllegalArgumentException.class)
-  @When({ "!discriminantIsNonNegative" })
-  public void solveEquation2$thenThrowIllegalArgumentException() {
-    new QuadraticEquation(
-        a,
-        b,
-        c).solve();
-  }
-
-  @Test(expected = IllegalArgumentException.class)
   @When({ "!coefficientsAreValid" })
   public void solveEquation3$thenThrowIllegalArgumentException() {
     new QuadraticEquation(
@@ -89,6 +81,18 @@ public class QuadraticEquationTest {
         c).solve();
   }
 
+  @Test(expected = IllegalArgumentException.class)
+  @When({ "!discriminantIsNonNegative" })
+  public void solveEquation2$thenThrowIllegalArgumentException() {
+    new QuadraticEquation(
+        a,
+        b,
+        c).solve();
+  }
+
+  /**
+   * 出力される解x1またはx2を上述の2次方程式に代入した時、その誤差は0.01を越えない。(問題2：丸め誤差)
+   */
   @Test
   @When({ "*" })
   public void solveEquation$thenSolved() {

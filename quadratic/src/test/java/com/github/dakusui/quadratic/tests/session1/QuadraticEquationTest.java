@@ -1,4 +1,6 @@
-package com.github.dakusui.quadratic.session1;
+package com.github.dakusui.quadratic.tests.session1;
+
+import com.github.dakusui.quadratic.suts.session1.QuadraticEquation;
 
 import com.github.dakusui.jcunit.runners.standard.JCUnit;
 import com.github.dakusui.jcunit.runners.standard.annotations.FactorField;

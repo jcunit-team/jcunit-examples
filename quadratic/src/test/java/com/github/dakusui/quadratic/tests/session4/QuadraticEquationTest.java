@@ -1,16 +1,15 @@
-package com.github.dakusui.quadratic.session3.v1;
+package com.github.dakusui.quadratic.tests.session4;
 
+
+import com.github.dakusui.jcunit.plugins.constraints.SmartConstraintChecker;
 import com.github.dakusui.jcunit.runners.standard.JCUnit;
-import com.github.dakusui.jcunit.runners.standard.annotations.Condition;
-import com.github.dakusui.jcunit.runners.standard.annotations.FactorField;
-import com.github.dakusui.jcunit.runners.standard.annotations.When;
-import com.github.dakusui.quadratic.session1.QuadraticEquation;
+import com.github.dakusui.jcunit.runners.standard.annotations.*;
+import com.github.dakusui.quadratic.suts.session1.QuadraticEquation;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import static org.hamcrest.number.IsCloseTo.closeTo;
 import static org.junit.Assert.assertThat;
-
 
 
 /**
@@ -25,6 +24,7 @@ import static org.junit.Assert.assertThat;
  * </pre>
  */
 @RunWith(JCUnit.class)
+@GenerateCoveringArrayWith(checker = @Checker(value = SmartConstraintChecker.class))
 public class QuadraticEquationTest {
   @FactorField(intLevels = {1, 0, -1, 100, 101, -100, -101, Integer.MAX_VALUE, Integer.MIN_VALUE})
   public int   a;
@@ -36,7 +36,7 @@ public class QuadraticEquationTest {
   /**
    * 制約1: ```a```が0の場合、例外が送出される。(**問題4:a==0**)
    */
-  @Condition
+  @Condition(constraint = true)
   public boolean aIsNonZero() {
     return this.a != 0;
   }
@@ -44,7 +44,7 @@ public class QuadraticEquationTest {
   /**
    * 制約2: ```a```,```b```,```c```のいずれかの絶対値が100より大きい場合、例外が創出される。(**問題3:巨大な係数**)
    */
-  @Condition
+  @Condition(constraint = true)
   public boolean coefficientsAreValid() {
     return
         -100 <= a && a <= 100 &&
@@ -55,7 +55,7 @@ public class QuadraticEquationTest {
   /**
    * 制約3: ```a```,```b```,```c```が```b * b - 4 * c * a >= 0```を満たさない場合、例外が送出される。(**問題1：虚数解**)
    */
-  @Condition
+  @Condition(constraint = true)
   public boolean discriminantIsNonNegative() {
     int a = this.a;
     int b = this.b;

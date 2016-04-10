@@ -1,4 +1,4 @@
-package com.github.dakusui.quadratic.session1;
+package com.github.dakusui.quadratic.suts.session1;
 
 /**
  * Quadratic equation solver.
