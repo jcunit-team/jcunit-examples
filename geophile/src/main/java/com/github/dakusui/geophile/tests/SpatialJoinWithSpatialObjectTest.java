@@ -9,6 +9,7 @@ import com.github.dakusui.actionunit.Context;
 import com.github.dakusui.actionunit.DataSource;
 import com.github.dakusui.actionunit.connectors.Sink;
 import com.github.dakusui.actionunit.exceptions.ActionException;
+import com.github.dakusui.actionunit.visitors.ActionPrinter;
 import com.github.dakusui.actionunit.visitors.ActionRunner;
 import com.github.dakusui.geophile.mymodel.Record;
 import com.github.dakusui.geophile.mymodel.SpatialJoinFilter;
@@ -18,11 +19,14 @@ import com.github.dakusui.geophile.testbase.SpaceProvider;
 import com.github.dakusui.geophile.testbase.SpatialObjectProvider;
 import com.github.dakusui.geophile.testbase.SpatialObjectSet;
 import com.github.dakusui.geophile.testbase.SpatialObjectSetProvider;
-import com.github.dakusui.jcunit.plugins.constraints.SmartConstraintChecker;
+import com.github.dakusui.jcunit.framework.TestSuite;
+import com.github.dakusui.jcunit.plugins.caengines.Ipo2CoveringArrayEngine;
+import com.github.dakusui.jcunit.plugins.constraints.SmartConstraintCheckerImpl;
 import com.github.dakusui.jcunit.runners.standard.TestCaseUtils;
 import com.github.dakusui.jcunit.runners.standard.annotations.Checker;
 import com.github.dakusui.jcunit.runners.standard.annotations.FactorField;
 import com.github.dakusui.jcunit.runners.standard.annotations.GenerateCoveringArrayWith;
+import com.github.dakusui.jcunit.runners.standard.annotations.Generator;
 import com.google.common.base.Function;
 import com.google.common.collect.Sets;
 import org.junit.Test;
@@ -31,6 +35,7 @@ import org.junit.runner.RunWith;
 import java.io.IOException;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.AbstractList;
 import java.util.Iterator;
 import java.util.Set;
 
@@ -45,7 +50,7 @@ import static org.junit.Assert.assertEquals;
 /**
  * This test verifies geophile's simple query use case.
  * The scenario is as follows.
- * <p>
+ * <p/>
  * <ol>
  * <li>Prepare space and index.</li>
  * <li>Perform a spatial join.
@@ -58,205 +63,222 @@ import static org.junit.Assert.assertEquals;
  * </ol>
  */
 @RunWith(ActionUnit.class)
-@GenerateCoveringArrayWith(checker = @Checker(SmartConstraintChecker.class))
+@GenerateCoveringArrayWith(
+		engine = @Generator(Ipo2CoveringArrayEngine.class),
+		checker = @Checker(
+				value = SmartConstraintCheckerImpl.class))
 public class SpatialJoinWithSpatialObjectTest {
-  @Retention(RetentionPolicy.RUNTIME)
-  public @interface Print {
-  }
+	@Retention(RetentionPolicy.RUNTIME)
+	public @interface Print {
+	}
 
-  @Retention(RetentionPolicy.RUNTIME)
-  public @interface Execute {
-  }
+	@Retention(RetentionPolicy.RUNTIME)
+	public @interface Execute {
+	}
 
-  @FactorField
-  public SpaceProvider spaceProvider;
+	@FactorField
+	public SpaceProvider spaceProvider;
 
-  @FactorField(includeNull = true)
-  public SpatialIndex.Options options;
+	@FactorField(includeNull = true)
+	public SpatialIndex.Options options;
 
-  @FactorField
-  public boolean stableRecords;
+	@FactorField
+	public boolean stableRecords;
 
-  @FactorField
-  public SpatialJoin.Duplicates duplicates;
+	@FactorField
+	public SpatialJoin.Duplicates duplicates;
 
-  @FactorField
-  public SpatialObjectSetProvider.Standard spatialObjectSetProvider;
+	@FactorField
+	public SpatialObjectSetProvider.Standard spatialObjectSetProvider;
 
-  @FactorField
-  public SpatialObjectProvider.Standard queryObjectProvider;
+	@FactorField
+	public SpatialObjectProvider.Standard queryObjectProvider;
 
-  protected Space space;
+	protected Space space;
 
-  protected Index index;
+	protected Index index;
 
-  protected SpatialIndex<Record> spatialIndex;
+	protected SpatialIndex<Record> spatialIndex;
 
-  protected SpatialObjectSet spatialObjects;
+	protected SpatialObjectSet spatialObjects;
 
-  protected Record.Builder recordBuilder;
+	protected Record.Builder recordBuilder;
 
-  protected SpatialJoin session;
+	protected SpatialJoin session;
 
-  protected SpatialObject query;
+	protected SpatialObject query;
+
+	@ActionUnit.PerformWith({Print.class, Execute.class})
+	public Iterable<Action> test() {
+		final TestSuite.Typed<SpatialJoinWithSpatialObjectTest> testSuite = TestSuite.Typed.generate(SpatialJoinWithSpatialObjectTest.class);
+		return new AbstractList<Action>() {
+			@Override
+			public Action get(int index) {
+				return testSuite.inject(index).setup();
+			}
+
+			@Override
+			public int size() {
+				return testSuite.size();
+			}
+		};
+	}
+
+	public Action setup() {
+		return sequential(
+				createSpace(),
+				createIndex(this.stableRecords),
+				createSpatialIndex(this.space, this.index, this.options),
+				createRecordBuilder(this.stableRecords),
+				loadObjects(),
+				foreach(
+						spatialObjectsForIndex(),
+						SEQUENTIALLY,
+						tag(0),
+						addSpatialObjectToSpatialIndex(this)
+				),
+				createSpatialJoinSession(this.duplicates, SpatialJoinFilter.INSTANCE),
+				createQuery()
+		);
+	}
+
+	@Print
+	public void print(Action action) {
+		action.accept(ActionPrinter.Factory.create(ActionPrinter.Writer.Std.OUT));
+	}
+
+	@Execute
+	public void execute(Action action) {
+		ActionRunner.WithResult runner = new ActionRunner.WithResult();
+		try {
+			action.accept(runner);
+		} finally {
+			action.accept(runner.createPrinter());
+		}
+	}
+
+	private Action createQuery() {
+		return simple("createQuery", new Runnable() {
+			@Override
+			public void run() {
+				query = queryObjectProvider.get();
+			}
+		});
+	}
+
+	private Action createSpatialJoinSession(final SpatialJoin.Duplicates duplicates, final SpatialJoinFilter filter) {
+		return simple("createSpatialJoinSession", new Runnable() {
+			@Override
+			public void run() {
+				session = SpatialJoin.newSpatialJoin(duplicates, filter);
+			}
+		});
+	}
+
+	private Action createRecordBuilder(final boolean stableRecords) {
+		return simple("createRecordBuilder", new Runnable() {
+			@Override
+			public void run() {
+				recordBuilder = new Record.Builder(stableRecords);
+			}
+		});
+	}
+
+	private DataSource.Factory.Base<SpatialObject> spatialObjectsForIndex() {
+		return new DataSource.Factory.Base<SpatialObject>() {
+			@Override
+			protected Iterable<SpatialObject> iterable(Context context) {
+				return spatialObjects.forIndex();
+			}
+		};
+	}
+
+	private Action loadObjects() {
+		return simple("loadObjects", new Runnable() {
+			@Override
+			public void run() {
+				spatialObjects = spatialObjectSetProvider.get();
+			}
+		});
+	}
+
+	private Action createIndex(final boolean stableRecords) {
+		return simple("createIndex", new Runnable() {
+			@Override
+			public void run() {
+				index = new Index(stableRecords);
+			}
+		});
+	}
+
+	private Action createSpace() {
+		return simple("createSpace", new Runnable() {
+			@Override
+			public void run() {
+				space = spaceProvider.create();
+			}
+		});
+	}
+
+	private static Iterable<SpatialObject> performQuery(
+			SpatialIndex<Record> spatialIndex,
+			SpatialJoin session,
+			SpatialObject query) throws IOException, InterruptedException {
+		return toIterable(transform(
+				session.iterator(query, spatialIndex),
+				new Function<Record, SpatialObject>() {
+					@Override
+					public SpatialObject apply(Record input) {
+						return (SpatialObject) input.spatialObject();
+					}
+				}));
+	}
+
+	private Action createSpatialIndex(final Space space, final Index index, final SpatialIndex.Options options) {
+		return simple("createSpatialIndex", new Runnable() {
+			@Override
+			public void run() {
+				try {
+					if (options == null) {
+						spatialIndex = SpatialIndex.newSpatialIndex(space, index);
+					} else {
+						spatialIndex = SpatialIndex.newSpatialIndex(space, index, options);
+					}
+				} catch (IOException | InterruptedException e) {
+					throw ActionException.wrap(e);
+				}
+			}
+		});
+	}
+
+	private static Sink<SpatialObject> addSpatialObjectToSpatialIndex(final SpatialJoinWithSpatialObjectTest testObject) {
+		return new Sink<SpatialObject>() {
+			@Override
+			public void apply(SpatialObject spatialObject, Context context) {
+				try {
+					if (SpatialIndex.Options.SINGLE_CELL == testObject.options) {
+						testObject.spatialIndex.add(spatialObject, testObject.recordBuilder.with(spatialObject), 1);
+					} else {
+						testObject.spatialIndex.add(spatialObject, testObject.recordBuilder.with(spatialObject));
+					}
+				} catch (IOException | InterruptedException e) {
+					throw ActionException.wrap(e);
+				}
+			}
+
+			@Override
+			public String toString() {
+				return format("addSpatialObjectToSpatialIndex(%s)", testObject);
+			}
+		};
+	}
+
+	private static Iterable<SpatialObject> toIterable(Iterator<SpatialObject> iterator) {
+		return asList(toArray(iterator, SpatialObject.class));
+	}
 
 
-  @ActionUnit.PerformWith({ Print.class, Execute.class })
-  public Action verify() {
-    return sequential(
-        createSpace(),
-        createIndex(this.stableRecords),
-        createSpatialIndex(this.space, this.index, this.options),
-        createRecordBuilder(this.stableRecords),
-        loadObjects(),
-        foreach(
-            spatialObjectsForIndex(),
-            SEQUENTIALLY,
-            tag(0),
-            addSpatialObjectToSpatialIndex(this.spatialIndex, this.recordBuilder, this.options)
-        ),
-        createSpatialJoinSession(this.duplicates, SpatialJoinFilter.INSTANCE),
-        createQuery()
-    );
-  }
-
-  @Print
-  public void print(Action action) {
-    action.accept(new ActionRunner.Impl());
-  }
-
-  @Execute
-  public void execute(Action action) {
-    ActionRunner.WithResult runner = new ActionRunner.WithResult();
-    try {
-      action.accept(runner);
-    } finally {
-      action.accept(runner.createPrinter());
-    }
-  }
-
-  private Action createQuery() {
-    return simple("createQuery", new Runnable() {
-      @Override
-      public void run() {
-        query = queryObjectProvider.get();
-      }
-    });
-  }
-
-  private Action createSpatialJoinSession(final SpatialJoin.Duplicates duplicates, final SpatialJoinFilter filter) {
-    return simple("createSpatialJoinSession", new Runnable() {
-      @Override
-      public void run() {
-        session = SpatialJoin.newSpatialJoin(duplicates, filter);
-      }
-    });
-  }
-
-  private Action createRecordBuilder(final boolean stableRecords) {
-    return simple("createRecordBuilder", new Runnable() {
-      @Override
-      public void run() {
-        recordBuilder = new Record.Builder(stableRecords);
-      }
-    });
-  }
-
-  private DataSource.Factory.Base<SpatialObject> spatialObjectsForIndex() {
-    return new DataSource.Factory.Base<SpatialObject>() {
-      @Override
-      protected Iterable<SpatialObject> iterable(Context context) {
-        return spatialObjects.forIndex();
-      }
-    };
-  }
-
-  private Action loadObjects() {
-    return simple("loadObjects", new Runnable() {
-      @Override
-      public void run() {
-        spatialObjects = spatialObjectSetProvider.get();
-      }
-    });
-  }
-
-  private Action createIndex(final boolean stableRecords) {
-    return simple("createIndex", new Runnable() {
-      @Override
-      public void run() {
-        index = new Index(stableRecords);
-      }
-    });
-  }
-
-  private Action createSpace() {
-    return simple("createSpace", new Runnable() {
-      @Override
-      public void run() {
-        space = spaceProvider.create();
-      }
-    });
-  }
-
-  private static Iterable<SpatialObject> performQuery(
-      SpatialIndex<Record> spatialIndex,
-      SpatialJoin session,
-      SpatialObject query) throws IOException, InterruptedException {
-    return toIterable(transform(
-        session.iterator(query, spatialIndex),
-        new Function<Record, SpatialObject>() {
-          @Override
-          public SpatialObject apply(Record input) {
-            return (SpatialObject) input.spatialObject();
-          }
-        }));
-  }
-
-  private Action createSpatialIndex(final Space space, final Index index, final SpatialIndex.Options options) {
-    return simple("createSpatialIndex", new Runnable() {
-      @Override
-      public void run() {
-        try {
-          if (options == null) {
-            spatialIndex = SpatialIndex.newSpatialIndex(space, index);
-          } else {
-            spatialIndex = SpatialIndex.newSpatialIndex(space, index, options);
-          }
-        } catch (IOException | InterruptedException e) {
-          throw ActionException.wrap(e);
-        }
-      }
-    });
-  }
-
-  private static Sink<SpatialObject> addSpatialObjectToSpatialIndex(final SpatialIndex<Record> spatialIndex, final Record.Builder recordBuilder, final SpatialIndex.Options options) {
-    return new Sink<SpatialObject>() {
-      @Override
-      public void apply(SpatialObject spatialObject, Context context) {
-        try {
-          if (SpatialIndex.Options.SINGLE_CELL == options) {
-            spatialIndex.add(spatialObject, recordBuilder.with(spatialObject), 1);
-          } else {
-            spatialIndex.add(spatialObject, recordBuilder.with(spatialObject));
-          }
-        } catch (IOException | InterruptedException e) {
-          throw ActionException.wrap(e);
-        }
-      }
-
-      @Override
-      public String toString() {
-        return format("addSpatialObjectToSpatialIndex(%s,%s)", spatialIndex, recordBuilder);
-      }
-    };
-  }
-
-  private static Iterable<SpatialObject> toIterable(Iterator<SpatialObject> iterator) {
-    return asList(toArray(iterator, SpatialObject.class));
-  }
-
-
-  private static class Stash extends SpatialJoinWithSpatialObjectTest {
+	private static class Stash extends SpatialJoinWithSpatialObjectTest {
   /*
   @Before
   public void wireObjects() throws IOException, InterruptedException {
@@ -274,50 +296,50 @@ public class SpatialJoinWithSpatialObjectTest {
   }
   */
 
-    @Test
-    public void printTestCase() {
-      System.out.println(TestCaseUtils.toTestCase(this));
-    }
+		@Test
+		public void printTestCase() {
+			System.out.println(TestCaseUtils.toTestCase(this));
+		}
 
-    @Test
-    public void printIndexedObjectSet() throws IOException, InterruptedException {
-      int count = 0;
-      for (SpatialObject each : this.spatialObjects.forIndex()) {
-        System.out.println("  " + each);
-        count++;
-      }
-      System.out.println(count + " objects are added to SpatialIndex");
-    }
+		@Test
+		public void printIndexedObjectSet() throws IOException, InterruptedException {
+			int count = 0;
+			for (SpatialObject each : this.spatialObjects.forIndex()) {
+				System.out.println("  " + each);
+				count++;
+			}
+			System.out.println(count + " objects are added to SpatialIndex");
+		}
 
-    @Test
-    public void printExpectation() {
-      System.out.println("Expectation");
-      int count = 0;
-      for (SpatialObject each : Sets.newHashSet(this.spatialObjectSetProvider.get().getObjectsMatchingWith(query))) {
-        System.out.println("  " + each);
-        count++;
-      }
-      System.out.println(count + " unique objects are expected to be returned.");
-    }
+		@Test
+		public void printExpectation() {
+			System.out.println("Expectation");
+			int count = 0;
+			for (SpatialObject each : Sets.newHashSet(this.spatialObjectSetProvider.get().getObjectsMatchingWith(query))) {
+				System.out.println("  " + each);
+				count++;
+			}
+			System.out.println(count + " unique objects are expected to be returned.");
+		}
 
-    @Test
-    public void printQueryResult() throws IOException, InterruptedException {
-      System.out.println("query=" + this.query);
-      int count = 0;
-      Set<SpatialObject> uniqueObjects = Sets.newHashSet();
-      for (SpatialObject each : performQuery(this.spatialIndex, this.session, this.query)) {
-        System.out.println("  " + each);
-        uniqueObjects.add(each);
-        count++;
-      }
-      System.out.println(count + " objects hit " + this.query + "(" + uniqueObjects.size() + " are unique)");
-    }
+		@Test
+		public void printQueryResult() throws IOException, InterruptedException {
+			System.out.println("query=" + this.query);
+			int count = 0;
+			Set<SpatialObject> uniqueObjects = Sets.newHashSet();
+			for (SpatialObject each : performQuery(this.spatialIndex, this.session, this.query)) {
+				System.out.println("  " + each);
+				uniqueObjects.add(each);
+				count++;
+			}
+			System.out.println(count + " objects hit " + this.query + "(" + uniqueObjects.size() + " are unique)");
+		}
 
-    @Test
-    public void verifyQueryResult() throws IOException, InterruptedException {
-      assertEquals(
-          Sets.newHashSet(this.spatialObjectSetProvider.get().getObjectsMatchingWith(query)),
-          Sets.newHashSet(performQuery(this.spatialIndex, this.session, this.query)));
-    }
-  }
+		@Test
+		public void verifyQueryResult() throws IOException, InterruptedException {
+			assertEquals(
+					Sets.newHashSet(this.spatialObjectSetProvider.get().getObjectsMatchingWith(query)),
+					Sets.newHashSet(performQuery(this.spatialIndex, this.session, this.query)));
+		}
+	}
 }
