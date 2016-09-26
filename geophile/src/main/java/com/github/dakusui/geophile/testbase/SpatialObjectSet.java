@@ -79,5 +79,10 @@ public interface SpatialObjectSet {
     public Iterable<SpatialObject> forIndex() {
       return transform(filter(this.spatialObjectProviders, FOR_INDEX), GET);
     }
+
+    @Override
+    public String toString() {
+      return all().toString();
+    }
   }
 }
