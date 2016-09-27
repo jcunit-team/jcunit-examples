@@ -9,6 +9,7 @@ import com.github.dakusui.actionunit.connectors.Source;
 import com.github.dakusui.actionunit.exceptions.ActionException;
 import com.github.dakusui.actionunit.visitors.ActionPrinter;
 import com.github.dakusui.actionunit.visitors.ActionRunner;
+import com.github.dakusui.geophile.jcunit.SubsetLevelsProvider;
 import com.github.dakusui.geophile.mymodel.Record;
 import com.github.dakusui.geophile.mymodel.SpatialJoinFilter;
 import com.github.dakusui.geophile.mymodel.SpatialObject;
@@ -18,10 +19,7 @@ import com.github.dakusui.jcunit.framework.TestSuite;
 import com.github.dakusui.jcunit.plugins.caengines.Ipo2CoveringArrayEngine;
 import com.github.dakusui.jcunit.plugins.constraints.SmartConstraintCheckerImpl;
 import com.github.dakusui.jcunit.runners.standard.TestCaseUtils;
-import com.github.dakusui.jcunit.runners.standard.annotations.Checker;
-import com.github.dakusui.jcunit.runners.standard.annotations.FactorField;
-import com.github.dakusui.jcunit.runners.standard.annotations.GenerateCoveringArrayWith;
-import com.github.dakusui.jcunit.runners.standard.annotations.Generator;
+import com.github.dakusui.jcunit.runners.standard.annotations.*;
 import com.google.common.base.Function;
 import com.google.common.collect.Sets;
 import org.junit.runner.RunWith;
@@ -87,6 +85,16 @@ public class SpatialJoinTest {
 
   @FactorField
   public SpatialObjectSetProvider.Standard spatialObjectSetProvider;
+
+  @FactorField(
+      levelsProvider = SubsetLevelsProvider.PassThrough.class,
+      args = { @Value("-1"), @Value("-1"), @Value({ "BOXb", "BOX2", "POINT1", "POINT2" }) })
+  public List<String> indexedObjects;
+
+  @FactorField(
+      levelsProvider = SubsetLevelsProvider.PassThrough.class,
+      args = { @Value("0"), @Value("2"), @Value({ "BOXa", "BOX2", "POINT1", "POINT2", "BOX3", "POINT3" }) })
+  public List<String> queryObjects;
 
   @FactorField
   public SpatialObjectProvider.Standard queryObjectProvider;
