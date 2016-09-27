@@ -17,9 +17,11 @@ import com.github.dakusui.geophile.mymodel.index.Index;
 import com.github.dakusui.geophile.testbase.*;
 import com.github.dakusui.jcunit.framework.TestSuite;
 import com.github.dakusui.jcunit.plugins.caengines.Ipo2CoveringArrayEngine;
-import com.github.dakusui.jcunit.plugins.constraints.SmartConstraintCheckerImpl;
 import com.github.dakusui.jcunit.runners.standard.TestCaseUtils;
-import com.github.dakusui.jcunit.runners.standard.annotations.*;
+import com.github.dakusui.jcunit.runners.standard.annotations.FactorField;
+import com.github.dakusui.jcunit.runners.standard.annotations.GenerateCoveringArrayWith;
+import com.github.dakusui.jcunit.runners.standard.annotations.Generator;
+import com.github.dakusui.jcunit.runners.standard.annotations.Value;
 import com.google.common.base.Function;
 import com.google.common.collect.Sets;
 import org.junit.runner.RunWith;
@@ -54,9 +56,9 @@ import static org.junit.Assert.assertEquals;
  */
 @RunWith(ActionUnit.class)
 @GenerateCoveringArrayWith(
-    engine = @Generator(Ipo2CoveringArrayEngine.class),
+    engine = @Generator(Ipo2CoveringArrayEngine.class)/*,
     checker = @Checker(
-        value = SmartConstraintCheckerImpl.class))
+        value = SmartConstraintCheckerImpl.class)*/)
 public class SpatialJoinTest {
   @Retention(RetentionPolicy.RUNTIME)
   public @interface Print {
@@ -88,7 +90,7 @@ public class SpatialJoinTest {
 
   @FactorField(
       levelsProvider = SubsetLevelsProvider.PassThrough.class,
-      args = { @Value("-1"), @Value("-1"), @Value({ "BOXb", "BOX2", "POINT1", "POINT2" }) })
+      args = { @Value("-1"), @Value("-1"), @Value({ "BOX1", "BOX2", "POINT1", "POINT2" }) })
   public List<String> indexedObjects;
 
   @FactorField(

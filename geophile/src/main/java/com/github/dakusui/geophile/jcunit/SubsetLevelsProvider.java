@@ -18,18 +18,18 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Arrays.asList;
 
 public abstract class SubsetLevelsProvider<E> implements LevelsProvider {
-  List<List<String>> elementNames;
+  List<List<String>> levels;
 
-  public SubsetLevelsProvider(int min, int max, String... names) {
+  public SubsetLevelsProvider(int min, int max, String... elementNames) {
     checkArgument(min <= max, "min must be smaller than or equal to max (given: min=%s, max=%s)", min, max);
-    checkArgument(names.length == Sets.newHashSet(names).size(), "duplication found in %s", (Object[]) names);
+    checkArgument(elementNames.length == Sets.newHashSet(elementNames).size(), "duplication found in %s", (Object[]) elementNames);
     checkArgument(min >= 0 || min < 0 && min == -1 && max == -1);
     if (min < 0) {
-      min = max = names.length;
+      min = max = elementNames.length;
     }
-    this.elementNames = new ArrayList<>(calculateSize(min, max, names.length));
+    this.levels = new ArrayList<>(calculateSize(min, max, elementNames.length));
     for (int k = min; k <= max; k++) {
-      Iterables.addAll(this.elementNames, new Combinator<>(asList(names), k));
+      Iterables.addAll(this.levels, new Combinator<>(asList(elementNames), k));
     }
   }
 
@@ -45,7 +45,7 @@ public abstract class SubsetLevelsProvider<E> implements LevelsProvider {
 
   @Override
   public int size() {
-    return this.elementNames.size();
+    return this.levels.size();
   }
 
   @Override
@@ -53,12 +53,12 @@ public abstract class SubsetLevelsProvider<E> implements LevelsProvider {
     return new AbstractList<E>() {
       @Override
       public E get(int index) {
-        return getTranslator().apply(SubsetLevelsProvider.this.elementNames.get(n).get(index));
+        return getTranslator().apply(SubsetLevelsProvider.this.levels.get(index).get(n));
       }
 
       @Override
       public int size() {
-        return SubsetLevelsProvider.this.elementNames.size();
+        return SubsetLevelsProvider.this.levels.size();
       }
     };
   }
