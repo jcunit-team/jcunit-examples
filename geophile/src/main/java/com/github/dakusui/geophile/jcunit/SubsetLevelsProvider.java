@@ -1,9 +1,9 @@
 package com.github.dakusui.geophile.jcunit;
 
 import com.github.dakusui.combinatoradix.Combinator;
+import com.github.dakusui.combinatoradix.Enumerator;
 import com.github.dakusui.combinatoradix.Utils;
 import com.github.dakusui.jcunit.core.utils.Checks;
-import com.github.dakusui.jcunit.plugins.levelsproviders.LevelsProvider;
 import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -17,19 +17,21 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Arrays.asList;
 
-public abstract class SubsetLevelsProvider<E> implements LevelsProvider {
+public abstract class SubsetLevelsProvider<E> extends SubcollectionLevelsProvider<E> {
+
   List<List<String>> levels;
 
   public SubsetLevelsProvider(int min, int max, String... elementNames) {
-    checkArgument(min <= max, "min must be smaller than or equal to max (given: min=%s, max=%s)", min, max);
     checkArgument(elementNames.length == Sets.newHashSet(elementNames).size(), "duplication found in %s", (Object[]) elementNames);
+    checkArgument(min <= max, "min must be smaller than or equal to max (given: min=%s, max=%s)", min, max);
+    checkArgument(max <= elementNames.length);
     checkArgument(min >= 0 || min < 0 && min == -1 && max == -1);
     if (min < 0) {
       min = max = elementNames.length;
     }
     this.levels = new ArrayList<>(calculateSize(min, max, elementNames.length));
     for (int k = min; k <= max; k++) {
-      Iterables.addAll(this.levels, new Combinator<>(asList(elementNames), k));
+      Iterables.addAll(this.levels, createEnumerator(k, elementNames));
     }
   }
 
@@ -53,14 +55,18 @@ public abstract class SubsetLevelsProvider<E> implements LevelsProvider {
     return new AbstractList<E>() {
       @Override
       public E get(int index) {
-        return getTranslator().apply(SubsetLevelsProvider.this.levels.get(index).get(n));
+        return getTranslator().apply(SubsetLevelsProvider.this.levels.get(n).get(index));
       }
 
       @Override
       public int size() {
-        return SubsetLevelsProvider.this.levels.size();
+        return SubsetLevelsProvider.this.levels.get(n).size();
       }
     };
+  }
+
+  protected Enumerator<String> createEnumerator(int k, String[] elementNames) {
+    return new Combinator<>(asList(elementNames), k);
   }
 
   public static abstract class Base<E> extends SubsetLevelsProvider<E> {
