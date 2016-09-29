@@ -1,6 +1,8 @@
 package com.github.dakusui.geophile.jcunit;
 
 import com.github.dakusui.combinatoradix.Combinator;
+import com.github.dakusui.combinatoradix.Enumerator;
+import com.github.dakusui.combinatoradix.Permutator;
 import com.github.dakusui.combinatoradix.Utils;
 import com.github.dakusui.jcunit.core.utils.Checks;
 import com.github.dakusui.jcunit.plugins.levelsproviders.LevelsProvider;
@@ -15,21 +17,42 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.String.format;
 import static java.util.Arrays.asList;
 
-public abstract class SubsetLevelsProvider<E> implements LevelsProvider {
+public abstract class SubsetLevels<E> implements LevelsProvider {
+  public enum Mode {
+    NOT_ORDERED {
+      public Enumerator<String> createEnumerator(int k, String[] elementNames) {
+        return new Combinator<>(asList(elementNames), k);
+      }
+    },
+    ORDERED {
+      public Enumerator<String> createEnumerator(int k, String[] elementNames) {
+        return new Permutator<>(asList(elementNames), k);
+      }
+    };
+
+    public abstract Enumerator<String> createEnumerator(int k, String[] elementNames);
+  }
+
   List<List<String>> levels;
 
-  public SubsetLevelsProvider(int min, int max, String... elementNames) {
+  public SubsetLevels(Mode mode, int min, int max, boolean includeNull, String... elementNames) {
+    checkNotNull(mode);
     checkArgument(min <= max, "min must be smaller than or equal to max (given: min=%s, max=%s)", min, max);
     checkArgument(elementNames.length == Sets.newHashSet(elementNames).size(), "duplication found in %s", (Object[]) elementNames);
+    checkArgument(max <= elementNames.length);
     checkArgument(min >= 0 || min < 0 && min == -1 && max == -1);
     if (min < 0) {
       min = max = elementNames.length;
     }
     this.levels = new ArrayList<>(calculateSize(min, max, elementNames.length));
     for (int k = min; k <= max; k++) {
-      Iterables.addAll(this.levels, new Combinator<>(asList(elementNames), k));
+      Iterables.addAll(this.levels, mode.createEnumerator(k, elementNames));
+    }
+    if (includeNull) {
+      this.levels.add(null);
     }
   }
 
@@ -50,24 +73,26 @@ public abstract class SubsetLevelsProvider<E> implements LevelsProvider {
 
   @Override
   public List<E> get(final int n) {
-    return new AbstractList<E>() {
-      @Override
-      public E get(int index) {
-        return getTranslator().apply(SubsetLevelsProvider.this.levels.get(index).get(n));
-      }
+    return SubsetLevels.this.levels.get(n) == null ?
+        null :
+        new AbstractList<E>() {
+          @Override
+          public E get(int index) {
+            return getTranslator().apply(SubsetLevels.this.levels.get(n).get(index));
+          }
 
-      @Override
-      public int size() {
-        return SubsetLevelsProvider.this.levels.size();
-      }
-    };
+          @Override
+          public int size() {
+            return SubsetLevels.this.levels.get(n).size();
+          }
+        };
   }
 
-  public static abstract class Base<E> extends SubsetLevelsProvider<E> {
+  public static abstract class Base<E> extends SubsetLevels<E> {
     private final Function<String, E> func;
 
-    public Base(int min, int max, String... names) {
-      super(min, max, names);
+    public Base(Mode mode, int min, int max, boolean includeNull, String... names) {
+      super(mode, min, max, includeNull, names);
       this.func = createTranslator();
     }
 
@@ -81,10 +106,13 @@ public abstract class SubsetLevelsProvider<E> implements LevelsProvider {
 
   public static class PassThrough extends Base<String> {
     public PassThrough(
-        @Param(source = Param.Source.CONFIG) int min,
-        @Param(source = Param.Source.CONFIG) int max,
-        @Param(source = Param.Source.CONFIG) String... names) {
-      super(min, max, names);
+        @Param(source = Param.Source.CONFIG) String[] names,
+        @Param(source = Param.Source.CONFIG, defaultValue = { "-1" }) int min,
+        @Param(source = Param.Source.CONFIG, defaultValue = { "-1" }) int max,
+        @Param(source = Param.Source.CONFIG, defaultValue = { "NOT_ORDERED" }) Mode mode,
+        @Param(source = Param.Source.CONFIG, defaultValue = { "false" }) boolean includeNull
+    ) {
+      super(mode, min, max, includeNull, names);
     }
 
     @Override
@@ -99,14 +127,19 @@ public abstract class SubsetLevelsProvider<E> implements LevelsProvider {
   }
 
   public static abstract class Concretizable<EE, E extends Concretizer<T, EE>, T> extends Base<E> {
-    public Concretizable(int min, int max, String... names) {
-      super(min, max, names);
+    public Concretizable(Mode mode, int min, int max, boolean includeNull, String... names) {
+      super(mode, min, max, includeNull, names);
     }
   }
 
-  public static class FieldBased<EE, E extends Concretizer<T, EE>, T> extends Concretizable<EE, E, T> {
-    public FieldBased(int min, int max, String... names) {
-      super(min, max, names);
+  public static class FromFields<EE, E extends Concretizer<T, EE>, T> extends Concretizable<EE, E, T> {
+    public FromFields(
+        @Param(source = Param.Source.CONFIG) String[] names,
+        @Param(source = Param.Source.CONFIG, defaultValue = { "-1" }) int min,
+        @Param(source = Param.Source.CONFIG, defaultValue = { "-1" }) int max,
+        @Param(source = Param.Source.CONFIG, defaultValue = { "NOT_ORDERED" }) Mode mode,
+        @Param(source = Param.Source.CONFIG, defaultValue = { "false" }) boolean includeNull) {
+      super(mode, min, max, includeNull, names);
     }
 
     @Override
@@ -129,15 +162,24 @@ public abstract class SubsetLevelsProvider<E> implements LevelsProvider {
                 );
               }
             }
+
+            public String toString() {
+              return format("concretize(%s)", input);
+            }
           };
         }
       };
     }
   }
 
-  public static class MethodBased<EE, E extends Concretizer<T, EE>, T> extends Concretizable<EE, E, T> {
-    public MethodBased(int min, int max, String... names) {
-      super(min, max, names);
+  public static class FromMethods<EE, E extends Concretizer<T, EE>, T> extends Concretizable<EE, E, T> {
+    public FromMethods(@Param(source = Param.Source.CONFIG) String[] names,
+        @Param(source = Param.Source.CONFIG, defaultValue = { "-1" }) int min,
+        @Param(source = Param.Source.CONFIG, defaultValue = { "-1" }) int max,
+        @Param(source = Param.Source.CONFIG, defaultValue = { "NOT_ORDERED" }) Mode mode,
+        @Param(source = Param.Source.CONFIG, defaultValue = { "false" }) boolean includeNull
+    ) {
+      super(mode, min, max, includeNull, names);
     }
 
     @Override
