@@ -19,13 +19,14 @@ import com.github.dakusui.geophile.mymodel.index.Index;
 import com.github.dakusui.geophile.testbase.SpaceProvider;
 import com.github.dakusui.jcunit.coverage.CombinatorialMetrics;
 import com.github.dakusui.jcunit.framework.TestSuite;
-import com.github.dakusui.jcunit.plugins.caengines.Ipo2CoveringArrayEngine;
+import com.github.dakusui.jcunit.plugins.caengines.IpoGcCoveringArrayEngine;
 import com.github.dakusui.jcunit.plugins.constraints.SmartConstraintCheckerImpl;
-import com.github.dakusui.jcunit.runners.standard.TestCaseUtils;
+import com.github.dakusui.jcunit.runners.standard.JCUnit;
 import com.github.dakusui.jcunit.runners.standard.annotations.*;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Sets;
 import org.junit.runner.RunWith;
 
@@ -36,6 +37,7 @@ import java.util.*;
 
 import static com.github.dakusui.actionunit.Actions.*;
 import static com.github.dakusui.actionunit.actions.ForEach.Mode.SEQUENTIALLY;
+import static com.github.dakusui.jcunit.runners.standard.TestCaseUtils.toTestCase;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Iterators.toArray;
@@ -61,7 +63,7 @@ import static org.junit.Assert.assertEquals;
  */
 @RunWith(ActionUnit.class)
 @GenerateCoveringArrayWith(
-    engine = @Generator(Ipo2CoveringArrayEngine.class),
+    engine = @Generator(IpoGcCoveringArrayEngine.class),
     checker = @Checker(value = SmartConstraintCheckerImpl.class),
     reporters = @Reporter(value = CombinatorialMetrics.class))
 public class SpatialJoinTest {
@@ -107,7 +109,7 @@ public class SpatialJoinTest {
           @Value("0"),
           @Value("2"),
           @Value("NOT_ORDERED"),
-          @Value("true") })
+          @Value("false") })
   public List<Concretizer<SpatialJoinTest, SpatialObject>> queryObjects;
 
   @Condition(constraint = true)
@@ -117,9 +119,9 @@ public class SpatialJoinTest {
       return queryObjects == null;
     }
     if (this.operation == OperationType.WITH_SPATIAL_OBJECT) {
-      return queryObjects != null && queryObjects.size() == 1;
+      return this.queryObjects != null && this.queryObjects.size() == 1;
     }
-    return queryObjects != null;
+    return operation != null && queryObjects != null;
   }
 
   @Retention(RetentionPolicy.RUNTIME)
@@ -133,7 +135,7 @@ public class SpatialJoinTest {
   public static final ActionPrinter.Writer WRITER = ActionPrinter.Writer.Std.OUT;
 
   public static class Fixture {
-    protected OperationType operation = OperationType.WITH_SPATIAL_OBJECT;
+    protected OperationType operation;
 
     protected Space space;
 
@@ -160,15 +162,17 @@ public class SpatialJoinTest {
 
   @ActionUnit.PerformWith({ Print.class, Execute.class })
   public Iterable<Action> testCases() {
-    final TestSuite.Typed<SpatialJoinTest> testSuite = TestSuite.Typed.generate(SpatialJoinTest.class);
+    final TestSuite.Typed<SpatialJoinTest> testSuite = TestSuite.Typed.generate(
+        SpatialJoinTest.class,
+        new JCUnit.Engine.Config(true, true, false));
     return new AbstractList<Action>() {
       @Override
       public Action get(int index) {
         SpatialJoinTest testObject = testSuite.inject(index);
-        return sequential(
+        return named(format("%s[%s]", testSuite.get(index).getCategory(), index), sequential(
             setUp(testObject),
             runTest(testObject)
-        );
+        ));
       }
 
       @Override
@@ -188,10 +192,10 @@ public class SpatialJoinTest {
   public void execute(Action action) {
     ActionRunner.WithResult runner = new ActionRunner.WithResult();
     try {
-      WRITER.writeLine("==== Test execution log ====");
+      WRITER.writeLine("==== Test execution phase ====");
       action.accept(runner);
     } finally {
-      WRITER.writeLine("==== Test result ====");
+      WRITER.writeLine("==== Test closing phase  ====");
       action.accept(runner.createPrinter());
     }
   }
@@ -211,7 +215,8 @@ public class SpatialJoinTest {
                 addSpatialObjectToSpatialIndex(testObject)
             ),
             createSpatialJoinSession(testObject),
-            computeQueryAndExpectation(testObject)
+            computeQueryAndExpectation(testObject),
+            printFixture(testObject)
         ));
   }
 
@@ -222,9 +227,6 @@ public class SpatialJoinTest {
             .given(new Source<Fixture>() {
               @Override
               public Fixture apply(Context context) {
-                WRITER.writeLine("Given:");
-                WRITER.writeLine(format("  testcase: '%s'", TestCaseUtils.toTestCase(testObject)));
-                WRITER.writeLine(format("  fixture : '%s'", fixture));
                 return fixture;
               }
             }).when(new Function<Fixture, Iterable<SpatialObject>>() {
@@ -359,6 +361,17 @@ public class SpatialJoinTest {
     };
   }
 
+  private static Action printFixture(final SpatialJoinTest testObject) {
+    return simple("printFixture", new Runnable() {
+      @Override
+      public void run() {
+        WRITER.writeLine("Given:");
+        WRITER.writeLine(format("  testcase: '%s'", toTestCase(testObject)));
+        WRITER.writeLine(format("  fixture : '%s'", testObject.fixture));
+      }
+    });
+  }
+
   private static Action loadObjects(final SpatialJoinTest testObject) {
     return simple("loadObjects", new Runnable() {
       @Override
@@ -395,26 +408,44 @@ public class SpatialJoinTest {
     if (queryType == OperationType.WITH_SPATIAL_OBJECT) {
       return toIterable(transform(
           session.iterator(query.iterator().next(), spatialIndex),
-          new Function<Record, SpatialObject>() {
-            @Override
-            public SpatialObject apply(Record input) {
-              return (SpatialObject) input.spatialObject();
-            }
-          }));
+          recordToSpatialObject()));
     } else if (queryType == OperationType.WITH_ANOTHER_INDEX) {
-      return Collections.emptyList();
+      return toIterable(Iterators.transform(
+          session.iterator(buildSpatialIndexFromSpatialObjectSet(spatialIndex.space(), query), spatialIndex), rightSide()));
     } else if (queryType == OperationType.WITH_ITSELF) {
       return toIterable(transform(
           session.iterator(spatialIndex, spatialIndex),
-          new Function<Pair<Record, Record>, SpatialObject>() {
-            @Override
-            public SpatialObject apply(Pair<Record, Record> input) {
-              return (SpatialObject) input.right().spatialObject();
-            }
-          }));
+          rightSide()));
     } else {
       throw new UnsupportedOperationException(Objects.toString(queryType));
     }
+  }
+
+  private static SpatialIndex<? extends com.geophile.z.Record> buildSpatialIndexFromSpatialObjectSet(Space space, Set<SpatialObject> query) throws IOException, InterruptedException {
+    Index index = new Index(true);
+    int i = 0;
+    for (SpatialObject each : query) {
+      index.add(new Record.Immutable(each, i++));
+    }
+    return SpatialIndex.newSpatialIndex(space, index);
+  }
+
+  private static Function<? super Pair<? extends com.geophile.z.Record, ? extends com.geophile.z.Record>, SpatialObject> rightSide() {
+    return new Function<Pair<? extends com.geophile.z.Record, ? extends com.geophile.z.Record>, SpatialObject>() {
+      @Override
+      public SpatialObject apply(Pair<? extends com.geophile.z.Record, ? extends com.geophile.z.Record> input) {
+        return (SpatialObject) ((Record)input.right()).spatialObject();
+      }
+    };
+  }
+
+  private static Function<Record, SpatialObject> recordToSpatialObject() {
+    return new Function<Record, SpatialObject>() {
+      @Override
+      public SpatialObject apply(Record input) {
+        return (SpatialObject) input.spatialObject();
+      }
+    };
   }
 
   private static Action createSpatialIndex(final SpatialJoinTest testObject) {
