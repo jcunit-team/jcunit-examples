@@ -34,18 +34,6 @@ public abstract class Record extends RecordWithSpatialObject {
     }
   }
 
-  public abstract int id();
-
-  @Override
-  public void copyTo(com.geophile.z.Record record) {
-    if (record instanceof Mutable) {
-      ((Mutable) record).id = this.id();
-      super.copyTo(record);
-      return;
-    }
-    throw new UnsupportedOperationException("Non mutable recode '" + record.getClass() + ":" + record + "' was given.");
-  }
-
   public static class Builder implements com.geophile.z.Record.Factory<Record> {
     private final boolean stable;
     private SpatialObject spatialObject;
@@ -66,6 +54,31 @@ public abstract class Record extends RecordWithSpatialObject {
         return new Immutable(this.spatialObject, this.id++);
       } else {
         return new Mutable(this.spatialObject, this.id++);
+      }
+    }
+  }
+
+  @Override
+  public void copyTo(com.geophile.z.Record record) {
+    if (record instanceof Mutable) {
+      ((Mutable) record).id = this.id();
+      super.copyTo(record);
+      return;
+    }
+    throw new UnsupportedOperationException("Non mutable recode '" + record.getClass() + ":" + record + "' was given.");
+  }
+
+  public abstract int id();
+
+  public interface Filter extends com.geophile.z.Record.Filter<Record> {
+    class Factory {
+      public static Filter create(final SpatialObject spatialObject) {
+        return new Filter() {
+          @Override
+          public boolean select(Record record) {
+            return SpatialJoinFilter.INSTANCE.overlap(record.spatialObject(), spatialObject);
+          }
+        };
       }
     }
   }

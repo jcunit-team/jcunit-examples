@@ -56,7 +56,7 @@ public class Index extends com.geophile.z.Index<Record> {
 
 
   @Override
-  public boolean remove(long z, Record.Filter<Record> filter) {
+  public boolean remove(long z, com.geophile.z.Record.Filter<Record> filter) {
     boolean foundRecord = false;
     boolean zMatch = true;
     Iterator<Record> iterator = tree.tailSet(key(z)).iterator();

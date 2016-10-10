@@ -21,25 +21,39 @@ import static java.lang.String.format;
 import static java.util.Arrays.asList;
 
 public abstract class SubsetLevels<E> implements LevelsProvider {
+  private final Mode mode;
+
   public enum Mode {
     NOT_ORDERED {
       public Enumerator<String> createEnumerator(int k, String[] elementNames) {
         return new Combinator<>(asList(elementNames), k);
+      }
+
+      @Override
+      public long size(int n, int k) {
+        return Utils.nCk(n, k);
       }
     },
     ORDERED {
       public Enumerator<String> createEnumerator(int k, String[] elementNames) {
         return new Permutator<>(asList(elementNames), k);
       }
+
+      @Override
+      public long size(int n, int k) {
+        return Utils.nPk(n, k);
+      }
     };
 
     public abstract Enumerator<String> createEnumerator(int k, String[] elementNames);
+
+    public abstract long size(int n, int k);
   }
 
   List<List<String>> levels;
 
   public SubsetLevels(Mode mode, int min, int max, boolean includeNull, String... elementNames) {
-    checkNotNull(mode);
+    this.mode = checkNotNull(mode);
     checkArgument(min <= max, "min must be smaller than or equal to max (given: min=%s, max=%s)", min, max);
     checkArgument(elementNames.length == Sets.newHashSet(elementNames).size(), "duplication found in %s", (Object[]) elementNames);
     checkArgument(max <= elementNames.length);
@@ -59,7 +73,7 @@ public abstract class SubsetLevels<E> implements LevelsProvider {
   private int calculateSize(int min, int max, int n) {
     int ret = 0;
     for (int k = min; k <= max; k++) {
-      ret += Utils.nCk(n, k);
+      ret += this.mode.size(n, k);
     }
     return ret;
   }

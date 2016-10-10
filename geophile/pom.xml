@@ -34,6 +34,12 @@
         </developer>
     </developers>
     <dependencies>
+        <!-- jts -->
+        <dependency>
+            <groupId>com.vividsolutions</groupId>
+            <artifactId>jts</artifactId>
+            <version>1.13</version>
+        </dependency>
         <!-- junit -->
         <dependency>
             <groupId>junit</groupId>

@@ -1,5 +1,7 @@
 package com.github.dakusui.geophile.mymodel;
 
+import static java.lang.String.format;
+
 public interface SpatialObject extends com.geophile.z.SpatialObject {
   class Point extends com.geophile.z.spatialobject.d2.Point implements SpatialObject {
     /**
@@ -39,6 +41,10 @@ public interface SpatialObject extends com.geophile.z.SpatialObject {
       Box a = this;
       return a.xLo() < b.xHi() && b.xLo() < a.xHi() &&
           a.yLo() < b.yHi() && b.yLo() < a.yHi();
+    }
+
+    public String toString() {
+      return format("(%s,%s)-(%s,%s)", xLo(), yLo(), xHi(), yHi());
     }
   }
 }

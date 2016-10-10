@@ -9,8 +9,8 @@ public enum SpaceProvider {
 
   private final int[]    interleave;
   private final int[]    gridBits;
-  private final double[] hi;
-  private final double[] lo;
+  private final  double[] hi;
+  private final  double[] lo;
 
   SpaceProvider(double[] hi, double[] lo, int[] gridBits, int[] interleave) {
     this.hi = hi;
@@ -25,5 +25,21 @@ public enum SpaceProvider {
     }
 
     return Space.newSpace(this.hi, this.lo, this.gridBits, this.interleave);
+  }
+
+  public double getMinX() {
+    return hi[0];
+  }
+
+  public double getMinY() {
+    return hi[1];
+  }
+
+  public double getMaxX() {
+    return lo[0];
+  }
+
+  public double getMaxY() {
+    return lo[1];
   }
 }
