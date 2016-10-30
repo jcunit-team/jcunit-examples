@@ -34,13 +34,12 @@
         </developer>
     </developers>
     <dependencies>
-        <!-- geophile -->
+        <!-- jts -->
         <dependency>
-            <groupId>com.geophile</groupId>
-            <artifactId>geophile</artifactId>
-            <version>2.0.5</version>
+            <groupId>com.vividsolutions</groupId>
+            <artifactId>jts</artifactId>
+            <version>1.13</version>
         </dependency>
-
         <!-- junit -->
         <dependency>
             <groupId>junit</groupId>
@@ -58,14 +57,21 @@
         <dependency>
             <groupId>com.github.dakusui</groupId>
             <artifactId>jcunit</artifactId>
-            <version>0.7.1-SNAPSHOT</version>
+            <version>0.7.2a</version>
         </dependency>
         <!-- actionunit -->
         <dependency>
             <groupId>com.github.dakusui</groupId>
             <artifactId>actionunit</artifactId>
-            <version>2.0.5-SNAPSHOT</version>
+            <version>2.1.0</version>
         </dependency>
+        <!-- xeger -->
+        <dependency>
+            <groupId>nl.flotsam</groupId>
+            <artifactId>xeger</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
+        </dependency>
+
         <!-- guava -->
         <dependency>
             <groupId>com.google.guava</groupId>
