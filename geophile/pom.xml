@@ -57,7 +57,7 @@
         <dependency>
             <groupId>com.github.dakusui</groupId>
             <artifactId>jcunit</artifactId>
-            <version>0.7.2-SNAPSHOT</version>
+            <version>0.7.2a</version>
         </dependency>
         <!-- actionunit -->
         <dependency>
@@ -65,6 +65,13 @@
             <artifactId>actionunit</artifactId>
             <version>2.1.0</version>
         </dependency>
+        <!-- xeger -->
+        <dependency>
+            <groupId>nl.flotsam</groupId>
+            <artifactId>xeger</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
+        </dependency>
+
         <!-- guava -->
         <dependency>
             <groupId>com.google.guava</groupId>
